@@ -1,0 +1,157 @@
+{% extends 'generator/base.html' %}
+{% block title %}操作日志{% endblock %}
+
+{% block content %}
+<div class="max-w-6xl mx-auto p-6 bg-white rounded-xl shadow-md">
+    <h2 class="text-2xl font-bold mb-6">数据生成操作日志</h2>
+
+    <!-- 搜索框（可选扩展） -->
+    <div class="mb-4">
+        <input
+            type="text"
+            id="searchInput"
+            placeholder="搜索日志（按IP、数据库、表名）"
+            class="px-3 py-2 border rounded-md"
+            oninput="filterLogs()"
+        >
+    </div>
+
+    <div class="overflow-x-auto">
+        <table class="min-w-full divide-y divide-gray-200">
+            <thead>
+                <tr class="bg-gray-50">
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">操作时间</th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">操作IP</th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">数据库</th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">表名</th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">生成数量</th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">状态</th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">操作</th>
+                </tr>
+            </thead>
+            <tbody id="logTableBody" class="divide-y divide-gray-200">
+                {% for log in logs %}
+                <tr data-log="{{ log.id }}">
+                    <td class="px-6 py-4 whitespace-nowrap">
+                        {{ log.operation_time|date:"Y-m-d H:i:s" }}
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap">
+                        {{ log.ip_address }}
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap">
+                        {{ log.database_name }}
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap">
+                        {{ log.table_name }}
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap">
+                        {{ log.generation_count }}
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap">
+                        {% if log.status %}
+                            <span class="px-2 py-1 text-xs font-medium bg-green-100 text-green-800 rounded">成功</span>
+                        {% else %}
+                            <span class="px-2 py-1 text-xs font-medium bg-red-100 text-red-800 rounded">失败</span>
+                        {% endif %}
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap">
+                        <button
+                            onclick="showDetails('{{ log.id }}')"
+                            class="text-blue-600 hover:text-blue-800 mr-2"
+                        >
+                            查看规则
+                        </button>
+                        {% if not log.status %}
+                            <button
+                                onclick="showError('{{ log.id }}')"
+                                class="text-red-600 hover:text-red-800"
+                            >
+                                错误信息
+                            </button>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="7" class="px-6 py-8 text-center text-gray-500">
+                        暂无日志记录
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- 规则详情模态框 -->
+<div id="detailModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center hidden">
+    <div class="bg-white rounded-lg p-6 max-w-2xl w-full max-h-[80vh] overflow-auto">
+        <h3 class="text-xl font-bold mb-4">造数规则详情</h3>
+        <pre id="ruleContent" class="text-sm bg-gray-50 p-4 rounded whitespace-pre-wrap"></pre>
+        <button
+            onclick="closeModal('detailModal')"
+            class="mt-4 px-4 py-2 bg-gray-200 rounded hover:bg-gray-300"
+        >
+            关闭
+        </button>
+    </div>
+</div>
+
+<!-- 错误信息模态框 -->
+<div id="errorModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center hidden">
+    <div class="bg-white rounded-lg p-6 max-w-2xl w-full max-h-[80vh] overflow-auto">
+        <h3 class="text-xl font-bold mb-4 text-red-600">错误信息</h3>
+        <pre id="errorContent" class="text-sm bg-red-50 p-4 rounded whitespace-pre-wrap text-red-700"></pre>
+        <button
+            onclick="closeModal('errorModal')"
+            class="mt-4 px-4 py-2 bg-gray-200 rounded hover:bg-gray-300"
+        >
+            关闭
+        </button>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    // 日志数据（通过 data 属性传递，更可靠）
+    const logsData = {
+        {% for log in logs %}
+        "{{ log.id }}": {
+            rules: {{ log.generation_rules|safe }},
+            error: "{{ log.error_msg|escapejs }}"
+        },
+        {% endfor %}
+    };
+
+    // 显示规则详情
+    function showDetails(logId) {
+        const log = logsData[logId];
+        document.getElementById('ruleContent').textContent = JSON.stringify(log.rules, null, 2);
+        document.getElementById('detailModal').classList.remove('hidden');
+    }
+
+    // 显示错误信息
+    function showError(logId) {
+        const log = logsData[logId];
+        document.getElementById('errorContent').textContent = log.error || "无详细错误信息";
+        document.getElementById('errorModal').classList.remove('hidden');
+    }
+
+    // 关闭模态框
+    function closeModal(modalId) {
+        document.getElementById(modalId).classList.add('hidden');
+    }
+
+    // 搜索功能（可选）
+    function filterLogs() {
+        const input = document.getElementById('searchInput').value.toLowerCase();
+        const rows = document.querySelectorAll('#logTableBody tr');
+
+        rows.forEach(row => {
+            const text = row.textContent.toLowerCase();
+            row.style.display = text.includes(input) ? '' : 'none';
+        });
+    }
+</script>
+{% endblock %}

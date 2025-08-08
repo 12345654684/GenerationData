@@ -1,0 +1,101 @@
+{% extends 'generator/base.html' %}
+
+{% block title %}生成结果{% endblock %}
+
+{% block content %}
+<div class="max-w-4xl mx-auto bg-white rounded-xl shadow-md overflow-hidden">
+    <div class="p-6 border-b border-gray-200">
+        <h2 class="text-xl font-bold text-gray-800">数据生成结果</h2>
+        <p class="text-gray-600 mt-1">数据生成操作已完成，以下是详细结果</p>
+    </div>
+    
+    <div class="p-6">
+        <!-- 汇总信息 -->
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+            <div class="bg-gray-50 p-4 rounded-lg">
+                <div class="text-sm font-medium text-gray-500">总表数</div>
+                <div class="mt-1 text-2xl font-semibold text-gray-900">{{ total_tables }}</div>
+            </div>
+            
+            <div class="bg-green-50 p-4 rounded-lg">
+                <div class="text-sm font-medium text-green-500">成功表数</div>
+                <div class="mt-1 text-2xl font-semibold text-green-700">{{ success_tables }}</div>
+            </div>
+            
+            <div class="bg-blue-50 p-4 rounded-lg">
+                <div class="text-sm font-medium text-blue-500">总记录数</div>
+                <div class="mt-1 text-2xl font-semibold text-blue-700">{{ total_records }}</div>
+            </div>
+        </div>
+        
+        <!-- 详细结果 -->
+        <div class="overflow-x-auto">
+            <table class="min-w-full divide-y divide-gray-200">
+                <thead class="bg-gray-50">
+                    <tr>
+                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">表名</th>
+                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">状态</th>
+                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">记录数</th>
+                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">耗时(秒)</th>
+                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">信息</th>
+                    </tr>
+                </thead>
+                <tbody class="bg-white divide-y divide-gray-200">
+                    {% for result in results %}
+                    <tr>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                            {{ result.table }}
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap">
+                            {% if result.success %}
+                            <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800">
+                                成功
+                            </span>
+                            {% else %}
+                            <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-red-100 text-red-800">
+                                失败
+                            </span>
+                            {% endif %}
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                            {{ result.count }}
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                            {{ result.time }}
+                        </td>
+                        <td class="px-6 py-4 text-sm text-gray-500 max-w-xs">
+                            {% if result.error %}
+                            <div class="text-red-600">{{ result.error|truncatechars:50 }}</div>
+                            {% else %}
+                            <div>操作完成</div>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        
+        <div class="mt-6 p-4 bg-gray-50 rounded-lg">
+            <div class="flex items-center justify-between">
+                <div>
+                    <div class="text-sm font-medium text-gray-500">总耗时</div>
+                    <div class="mt-1 text-lg font-semibold text-gray-900">{{ total_time }} 秒</div>
+                </div>
+                
+                <div class="flex space-x-4">
+                    <a href="{% url 'generate_config' %}" 
+                       class="inline-flex items-center px-4 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary transition-colors">
+                        <i class="fa fa-refresh mr-2"></i> 重新生成
+                    </a>
+                    
+                    <a href="{% url 'reset' %}" 
+                       class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-primary hover:bg-primary/90 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary transition-colors">
+                        <i class="fa fa-home mr-2"></i> 返回首页
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

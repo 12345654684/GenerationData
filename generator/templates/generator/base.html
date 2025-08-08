@@ -1,0 +1,265 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>数据生成器 - {% block title %}首页{% endblock %}</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Font Awesome -->
+    <link href="https://cdn.jsdelivr.net/npm/font-awesome@4.7.0/css/font-awesome.min.css" rel="stylesheet">
+    
+    <!-- Tailwind 配置 -->
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        primary: '#3B82F6',
+                        secondary: '#10B981',
+                        accent: '#6366F1',
+                        neutral: '#64748B',
+                        danger: '#EF4444',
+                    },
+                    fontFamily: {
+                        sans: ['Inter', 'system-ui', 'sans-serif'],
+                    },
+                }
+            }
+        }
+    </script>
+    
+    <style type="text/tailwindcss">
+        @layer utilities {
+            .content-auto {
+                content-visibility: auto;
+            }
+            .step-active {
+                @apply bg-primary text-white border-primary;
+            }
+            .step-completed {
+                @apply bg-secondary text-white border-secondary;
+            }
+            .step-pending {
+                @apply bg-gray-100 text-gray-400 border-gray-200;
+            }
+            .card-shadow {
+                @apply shadow-lg hover:shadow-xl transition-shadow duration-300;
+            }
+        }
+    </style>
+</head>
+<body class="bg-gray-50 font-sans text-gray-800 min-h-screen">
+    <!-- 顶部导航 -->
+    <header class="bg-white shadow-sm">
+        <div class="container mx-auto px-4 py-4 flex justify-between items-center">
+            <div class="flex items-center space-x-2">
+                <i class="fa fa-database text-primary text-2xl"></i>
+                <h1 class="text-xl font-bold text-gray-800">数据生成器</h1>
+            </div>
+            <nav>
+                <ul class="flex space-x-6">
+                    <li><a href="{% url 'index' %}" class="text-gray-600 hover:text-primary transition-colors"><i class="fa fa-home mr-1"></i> 首页</a></li>
+                    <li><a href="{% url 'reset' %}" class="text-gray-600 hover:text-danger transition-colors"><i class="fa fa-refresh mr-1"></i> 重置</a></li>
+                </ul>
+            </nav>
+        </div>
+    </header>
+
+    <!-- 进度指示器 -->
+    <div class="bg-white border-b border-gray-200">
+        <div class="container mx-auto px-4 py-4">
+            <div class="flex flex-wrap items-center">
+                <!-- 步骤1: 开始 -->
+                <div class="flex items-center w-full md:w-auto md:flex-1">
+                    <div class="w-10 h-10 rounded-full border-2 flex items-center justify-center step-active">
+                        <i class="fa fa-check"></i>
+                    </div>
+                    <div class="hidden md:block ml-2 text-sm font-medium text-primary">开始</div>
+                    <div class="w-full md:w-16 h-1 bg-gray-200 ml-2 md:ml-4">
+                        {% if request.resolver_match.url_name != 'index' %}
+                        <div class="h-full bg-primary"></div>
+                        {% endif %}
+                    </div>
+                </div>
+                
+                <!-- 步骤2: 数据库配置 -->
+                <div class="flex items-center w-full md:w-auto md:flex-1 mt-4 md:mt-0">
+                    <div class="w-10 h-10 rounded-full border-2 flex items-center justify-center 
+                                {% if request.resolver_match.url_name == 'index' %}
+                                    step-pending
+                                {% elif request.resolver_match.url_name in 'table_selection,field_config,generate_config,generate_data,result' %}
+                                    step-completed
+                                {% else %}
+                                    step-active
+                                {% endif %}">
+                        {% if request.resolver_match.url_name in 'table_selection,field_config,generate_config,generate_data,result' %}
+                            <i class="fa fa-check"></i>
+                        {% else %}
+                            2
+                        {% endif %}
+                    </div>
+                    <div class="hidden md:block ml-2 text-sm font-medium 
+                                {% if request.resolver_match.url_name == 'database_config' %}text-primary{% elif request.resolver_match.url_name in 'table_selection,field_config,generate_config,generate_data,result' %}text-secondary{% else %}text-gray-400{% endif %}">
+                        数据库配置
+                    </div>
+                    <div class="w-full md:w-16 h-1 bg-gray-200 ml-2 md:ml-4">
+                        {% if request.resolver_match.url_name in 'table_selection,field_config,generate_config,generate_data,result' %}
+                        <div class="h-full bg-primary"></div>
+                        {% endif %}
+                    </div>
+                </div>
+                
+                <!-- 步骤3: 表选择 -->
+                <div class="flex items-center w-full md:w-auto md:flex-1 mt-4 md:mt-0">
+                    <div class="w-10 h-10 rounded-full border-2 flex items-center justify-center 
+                                {% if request.resolver_match.url_name in 'index,database_config' %}
+                                    step-pending
+                                {% elif request.resolver_match.url_name in 'field_config,generate_config,generate_data,result' %}
+                                    step-completed
+                                {% else %}
+                                    step-active
+                                {% endif %}">
+                        {% if request.resolver_match.url_name in 'field_config,generate_config,generate_data,result' %}
+                            <i class="fa fa-check"></i>
+                        {% else %}
+                            3
+                        {% endif %}
+                    </div>
+                    <div class="hidden md:block ml-2 text-sm font-medium 
+                                {% if request.resolver_match.url_name == 'table_selection' %}text-primary{% elif request.resolver_match.url_name in 'field_config,generate_config,generate_data,result' %}text-secondary{% else %}text-gray-400{% endif %}">
+                        表选择
+                    </div>
+                    <div class="w-full md:w-16 h-1 bg-gray-200 ml-2 md:ml-4">
+                        {% if request.resolver_match.url_name in 'field_config,generate_config,generate_data,result' %}
+                        <div class="h-full bg-primary"></div>
+                        {% endif %}
+                    </div>
+                </div>
+                
+                <!-- 步骤4: 字段配置 -->
+                <div class="flex items-center w-full md:w-auto md:flex-1 mt-4 md:mt-0">
+                    <div class="w-10 h-10 rounded-full border-2 flex items-center justify-center 
+                                {% if request.resolver_match.url_name in 'index,database_config,table_selection' %}
+                                    step-pending
+                                {% elif request.resolver_match.url_name in 'generate_config,generate_data,result' %}
+                                    step-completed
+                                {% else %}
+                                    step-active
+                                {% endif %}">
+                        {% if request.resolver_match.url_name in 'generate_config,generate_data,result' %}
+                            <i class="fa fa-check"></i>
+                        {% else %}
+                            4
+                        {% endif %}
+                    </div>
+                    <div class="hidden md:block ml-2 text-sm font-medium 
+                                {% if request.resolver_match.url_name == 'field_config' %}text-primary{% elif request.resolver_match.url_name in 'generate_config,generate_data,result' %}text-secondary{% else %}text-gray-400{% endif %}">
+                        字段配置
+                    </div>
+                    <div class="w-full md:w-16 h-1 bg-gray-200 ml-2 md:ml-4">
+                        {% if request.resolver_match.url_name in 'generate_config,generate_data,result' %}
+                        <div class="h-full bg-primary"></div>
+                        {% endif %}
+                    </div>
+                </div>
+                
+                <!-- 步骤5: 生成配置 -->
+                <div class="flex items-center w-full md:w-auto md:flex-1 mt-4 md:mt-0">
+                    <div class="w-10 h-10 rounded-full border-2 flex items-center justify-center 
+                                {% if request.resolver_match.url_name in 'index,database_config,table_selection,field_config' %}
+                                    step-pending
+                                {% elif request.resolver_match.url_name in 'generate_data,result' %}
+                                    step-completed
+                                {% else %}
+                                    step-active
+                                {% endif %}">
+                        {% if request.resolver_match.url_name in 'generate_data,result' %}
+                            <i class="fa fa-check"></i>
+                        {% else %}
+                            5
+                        {% endif %}
+                    </div>
+                    <div class="hidden md:block ml-2 text-sm font-medium 
+                                {% if request.resolver_match.url_name == 'generate_config' %}text-primary{% elif request.resolver_match.url_name in 'generate_data,result' %}text-secondary{% else %}text-gray-400{% endif %}">
+                        生成配置
+                    </div>
+                    <div class="w-full md:w-16 h-1 bg-gray-200 ml-2 md:ml-4">
+                        {% if request.resolver_match.url_name in 'generate_data,result' %}
+                        <div class="h-full bg-primary"></div>
+                        {% endif %}
+                    </div>
+                </div>
+                
+                <!-- 步骤6: 结果 -->
+                <div class="flex items-center w-full md:w-auto mt-4 md:mt-0">
+                    <div class="w-10 h-10 rounded-full border-2 flex items-center justify-center 
+                                {% if request.resolver_match.url_name != 'result' %}
+                                    step-pending
+                                {% else %}
+                                    step-active
+                                {% endif %}">
+                        {% if request.resolver_match.url_name == 'result' %}
+                            <i class="fa fa-check"></i>
+                        {% else %}
+                            6
+                        {% endif %}
+                    </div>
+                    <div class="hidden md:block ml-2 text-sm font-medium 
+                                {% if request.resolver_match.url_name == 'result' %}text-primary{% else %}text-gray-400{% endif %}">
+                        结果
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 消息提示 -->
+    {% if messages %}
+    <div class="container mx-auto px-4 py-4">
+        {% for message in messages %}
+        <div class="p-4 rounded-lg mb-4 
+                    {% if message.tags == 'success' %}bg-green-50 text-green-800 border border-green-200{% endif %}
+                    {% if message.tags == 'error' %}bg-red-50 text-red-800 border border-red-200{% endif %}
+                    {% if message.tags == 'warning' %}bg-yellow-50 text-yellow-800 border border-yellow-200{% endif %}">
+            <div class="flex items-center">
+                <i class="{% if message.tags == 'success' %}fa fa-check-circle text-green-500{% endif %}
+                          {% if message.tags == 'error' %}fa fa-exclamation-circle text-red-500{% endif %}
+                          {% if message.tags == 'warning' %}fa fa-exclamation-triangle text-yellow-500{% endif %} mr-3 text-xl"></i>
+                <p>{{ message }}</p>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+    {% endif %}
+
+    <!-- 主要内容 -->
+    <main class="container mx-auto px-4 py-8">
+        {% block content %}{% endblock %}
+    </main>
+
+    <!-- 页脚 -->
+    <footer class="bg-white border-t border-gray-200 mt-12">
+        <div class="container mx-auto px-4 py-6 text-center text-gray-500 text-sm">
+            <p>数据生成器 &copy; {% now "Y" %} - 用于快速生成测试数据</p>
+        </div>
+    </footer>
+
+    <!-- JavaScript -->
+    <script>
+        // 自动隐藏消息提示
+        document.addEventListener('DOMContentLoaded', function() {
+            setTimeout(function() {
+                const messages = document.querySelectorAll('.bg-green-50, .bg-red-50, .bg-yellow-50');
+                messages.forEach(function(msg) {
+                    msg.style.transition = 'opacity 0.5s ease';
+                    msg.style.opacity = '0';
+                    setTimeout(() => msg.remove(), 500);
+                });
+            }, 5000);
+        });
+    </script>
+    
+    {% block extra_js %}{% endblock %}
+</body>
+</html>

@@ -1,0 +1,54 @@
+{% extends 'generator/base.html' %}
+
+{% block title %}表选择{% endblock %}
+
+{% block content %}
+<div class="max-w-4xl mx-auto bg-white rounded-xl shadow-md overflow-hidden">
+    <div class="p-6 border-b border-gray-200">
+        <h2 class="text-xl font-bold text-gray-800">选择数据表</h2>
+        <p class="text-gray-600 mt-1">请选择需要生成数据的表（可多选）</p>
+    </div>
+    
+    <div class="p-6">
+        <form method="post">
+            {% csrf_token %}
+            
+            {% if tables %}
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-3 mb-6">
+                {% for table in tables %}
+                <div class="flex items-center">
+                    <input type="checkbox" name="tables" id="table_{{ table }}" value="{{ table }}" 
+                           class="h-4 w-4 text-primary focus:ring-primary border-gray-300 rounded">
+                    <label for="table_{{ table }}" class="ml-2 block text-sm text-gray-700">
+                        {{ table }}
+                    </label>
+                </div>
+                {% endfor %}
+            </div>
+            
+            <div class="flex items-center justify-between">
+                <a href="{% url 'database_config' %}" 
+                   class="inline-flex items-center px-4 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary transition-colors">
+                    <i class="fa fa-arrow-left mr-2"></i> 上一步
+                </a>
+                
+                <button type="submit" 
+                        class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-primary hover:bg-primary/90 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary transition-colors">
+                    <i class="fa fa-arrow-right mr-2"></i> 下一步
+                </button>
+            </div>
+            {% else %}
+            <div class="p-6 bg-gray-50 rounded-lg text-center">
+                <i class="fa fa-exclamation-triangle text-yellow-500 text-3xl mb-4"></i>
+                <h3 class="text-lg font-medium text-gray-900 mb-2">未找到数据表</h3>
+                <p class="text-gray-600 mb-4">请检查数据库连接和数据库名称是否正确</p>
+                <a href="{% url 'database_config' %}" 
+                   class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-primary hover:bg-primary/90 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary transition-colors">
+                    <i class="fa fa-arrow-left mr-2"></i> 返回修改配置
+                </a>
+            </div>
+            {% endif %}
+        </form>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,99 @@
+{% extends 'generator/base.html' %}
+
+{% block title %}生成配置{% endblock %}
+
+{% block content %}
+<div class="max-w-3xl mx-auto bg-white rounded-xl shadow-md overflow-hidden">
+    <div class="p-6 border-b border-gray-200">
+        <h2 class="text-xl font-bold text-gray-800">数据生成配置</h2>
+        <p class="text-gray-600 mt-1">设置要生成的数据数量和日期范围</p>
+    </div>
+    
+    <div class="p-6">
+        <form method="post">
+            {% csrf_token %}
+            
+            <div class="mb-6">
+                <h3 class="text-base font-medium text-gray-800 mb-4">选择的表</h3>
+                <div class="flex flex-wrap gap-2">
+                    {% for table in selected_tables %}
+                    <span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-blue-100 text-blue-800">
+                        {{ table }}
+                    </span>
+                    {% endfor %}
+                </div>
+            </div>
+            
+            <div class="space-y-4">
+                <div>
+                    <label for="num" class="block text-sm font-medium text-gray-700 mb-1">生成数量</label>
+                    <input type="number" name="num" id="num" min="1" max="100000"
+                           value="{{ default_num }}"
+                           class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-primary focus:border-primary"
+                           placeholder="要生成的记录数量">
+                    <p class="mt-1 text-xs text-gray-500">每个表将生成相同数量的记录</p>
+                </div>
+                
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                        <label for="start" class="block text-sm font-medium text-gray-700 mb-1">开始日期</label>
+                        <input type="text" name="start" id="start" 
+                               value="{{ default_start }}"
+                               class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-primary focus:border-primary"
+                               placeholder="格式：YYYYMMDD，例如：20230101">
+                    </div>
+                    
+                    <div>
+                        <label for="end" class="block text-sm font-medium text-gray-700 mb-1">结束日期</label>
+                        <input type="text" name="end" id="end" 
+                               value="{{ default_end }}"
+                               class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-primary focus:border-primary"
+                               placeholder="格式：YYYYMMDD，例如：20231231">
+                    </div>
+                </div>
+            </div>
+            
+            <div class="mt-6 flex items-center justify-between">
+                <a href="{% url 'field_config' %}" 
+                   class="inline-flex items-center px-4 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary transition-colors">
+                    <i class="fa fa-arrow-left mr-2"></i> 上一步
+                </a>
+                
+                <button type="submit" 
+                        class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-primary hover:bg-primary/90 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary transition-colors">
+                    <i class="fa fa-play mr-2"></i> 开始生成
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // 日期输入验证
+        const dateInputs = document.querySelectorAll('#start, #end');
+        
+        dateInputs.forEach(input => {
+            input.addEventListener('blur', function() {
+                const value = this.value;
+                if (value && !/^\d{8}$/.test(value)) {
+                    alert('日期格式不正确，请使用YYYYMMDD格式，例如20230101');
+                    this.focus();
+                }
+            });
+        });
+        
+        // 数量输入验证
+        const numInput = document.getElementById('num');
+        numInput.addEventListener('blur', function() {
+            const value = parseInt(this.value);
+            if (isNaN(value) || value < 1 || value > 100000) {
+                alert('生成数量必须是1到100000之间的数字');
+                this.focus();
+            }
+        });
+    });
+</script>
+{% endblock %}
