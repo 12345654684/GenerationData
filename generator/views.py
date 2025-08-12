@@ -330,6 +330,8 @@ def generate_random_datetime(start_date_str, end_date_str):
         return datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
 
+
+
 def max_pri(col, table, db_config):
     """获取主键的最大值"""
     try:
@@ -352,6 +354,16 @@ def max_pri(col, table, db_config):
     except Exception as e:
         print(f"获取主键最大值失败: {e}")
         return 0
+
+def rand_num(decimal_digits, min_val, max_val):
+    rand_lst=[]
+    for i in range(1000):
+        # 生成指定范围内的随机数
+        random_num = random.uniform(min_val, max_val)
+        # 保留指定的小数位数
+        formatted_num = round(random_num, decimal_digits)
+        rand_lst.append(formatted_num)
+    return rand_lst
 
 
 def generate_data(request):
@@ -421,6 +433,19 @@ def generate_data(request):
                     except Exception as e:
                         print(f"执行查询失败 {config_value}: {e}")
                         cols_dict[col] = []
+                elif 'rand_num' in config_value.lower():
+                    first_split = config_value.split(',')
+                    try :
+                        min_val = int(first_split[1].strip())
+                        decimal_digits = int(first_split[0].split('(')[1].strip())
+                        max_val = int(first_split[2].split(')')[0].strip())
+                    except Exception as e:
+                        messages.error(request,'rand_num随机配置必须为数字类型')
+                    if decimal_digits <= 0:
+                        messages.error(request,'rand_num随机配置小数位数不能为负数')
+                    if min_val>=max_val:
+                        messages.error(request,'rand_num随机配置最小值必须小于最大值')
+                    cols_dict[col] = rand_num(decimal_digits, min_val, max_val)
                 else:
                     # 分割为值列表
                     cols_dict[col] = [v.strip() for v in config_value.split(',') if v.strip()]
