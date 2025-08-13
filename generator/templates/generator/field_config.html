@@ -12,13 +12,29 @@
             <i class="fa fa-info-circle mr-2"></i>
             <strong>配置说明：</strong>
             可以输入固定值列表（用逗号分隔）或SQL查询语句（以SELECT开头）。主键字段会自动自增，无需配置。
-            以"time"结尾的字段会自动生成时间，格式为YYYYMMDD。随机数使用rand_num(decimal,min,max),
-            其中decimal为小数位数，min,max分别为最小值和最大值。
+            以"time"结尾的字段会自动生成时间，格式为YYYYMMDD。
+        </div>
+
+        <!-- 新增：rand_num详细使用说明 -->
+        <div class="mt-3 p-3 bg-purple-50 rounded-md text-sm text-purple-800">
+            <i class="fa fa-lightbulb-o mr-2"></i>
+            <strong>随机数生成规则：</strong>
+            使用 <code>rand_num(decimal, min, max)</code> 格式生成随机数，其中：
+            <ul class="list-disc ml-5 mt-1 space-y-1">
+                <li><code>decimal</code>：小数位数（必须是非负整数，如0、1、2）</li>
+                <li><code>min</code>：最小值（可以是整数或小数）</li>
+                <li><code>max</code>：最大值（可以是整数或小数，必须大于min）</li>
+            </ul>
+            示例：
+            <ul class="list-disc ml-5 mt-1 space-y-1">
+                <li><code>rand_num(0, 1, 100)</code> → 生成1-100之间的随机整数</li>
+                <li><code>rand_num(2, 10.5, 25.8)</code> → 生成10.5-25.8之间的随机数，保留2位小数</li>
+            </ul>
         </div>
     </div>
 
     <div class="p-6">
-        <form method="post">
+        <form method="post" id="fieldConfigForm">
             {% csrf_token %}
 
             <!-- 表选择器 -->
@@ -75,10 +91,15 @@
                                     {% if col in data.primary_keys %}
                                     <div class="text-sm text-gray-500">自动递增，无需配置</div>
                                     {% else %}
-                                    <input type="text" name="{{ table }}_{{ col }}"
-                                           value="{{ data.config|get_item:col|default:'' }}"
-                                           class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-primary focus:border-primary text-sm"
-                                           placeholder="{% if col|lower|endswith:'time' %}留空则使用日期范围配置{% else %}值1,值2,值3 或 SELECT语句{% endif %}">
+                                    <div class="w-full">
+                                        <input type="text" name="{{ table }}_{{ col }}"
+                                               value="{{ data.config|get_item:col|default:'' }}"
+                                               class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-primary focus:border-primary text-sm"
+                                               placeholder="{% if col|lower|endswith:'time' %}留空则使用日期范围配置{% else %}值1,值2,值3 或 SELECT语句 或 rand_num(...){% endif %}"
+                                               data-field="{{ table }}_{{ col }}">
+                                        <!-- 错误提示区域 -->
+                                        <p class="mt-1 text-xs text-red-600 hidden rand-num-error" id="error_{{ table }}_{{ col }}"></p>
+                                    </div>
                                     {% endif %}
                                 </td>
                             </tr>
@@ -145,6 +166,95 @@
                 this.classList.add('bg-primary', 'text-white');
             });
         });
+
+        // 新增：rand_num验证功能
+        const configInputs = document.querySelectorAll('input[name$="_id"]:not([name*="primary"]), input:not([name$="_id"])');
+
+        configInputs.forEach(input => {
+            // 实时验证
+            input.addEventListener('input', validateRandNum);
+            // 初始验证（如果已有值）
+            validateRandNum.call(input);
+        });
+
+        // 表单提交前验证
+        document.getElementById('fieldConfigForm').addEventListener('submit', function(e) {
+            let isValid = true;
+
+            configInputs.forEach(input => {
+                if (!validateRandNum.call(input)) {
+                    isValid = false;
+                    // 滚动到第一个错误字段
+                    if (isValid === false) {
+                        input.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                        input.focus();
+                    }
+                }
+            });
+
+            if (!isValid) {
+                e.preventDefault();
+                alert('存在无效的随机数配置，请修正后再提交');
+            }
+        });
+
+        // rand_num验证函数
+        function validateRandNum() {
+            const value = this.value.trim();
+            const errorElement = document.getElementById(`error_${this.dataset.field}`);
+            let isValid = true;
+            let errorMessage = '';
+
+            // 只验证以rand_num开头的输入
+            if (value.startsWith('rand_num(') && value.endsWith(')')) {
+                // 提取参数部分
+                const paramsStr = value.substring(9, value.length - 1).trim();
+                const params = paramsStr.split(',').map(p => p.trim());
+
+                // 验证参数数量
+                if (params.length !== 3) {
+                    isValid = false;
+                    errorMessage = '格式错误：需要3个参数，格式为 rand_num(小数位数, 最小值, 最大值)';
+                } else {
+                    const [decimalStr, minStr, maxStr] = params;
+                    const decimal = parseInt(decimalStr, 10);
+                    const min = parseFloat(minStr);
+                    const max = parseFloat(maxStr);
+
+                    // 验证小数位数
+                    if (isNaN(decimal) || decimal < 0 || !Number.isInteger(decimal)) {
+                        isValid = false;
+                        errorMessage = '小数位数必须是非负整数（如0、1、2）';
+                    }
+                    // 验证最小值和最大值是否为数字
+                    else if (isNaN(min) || isNaN(max)) {
+                        isValid = false;
+                        errorMessage = '最小值和最大值必须是有效的数字';
+                    }
+                    // 验证最大值是否大于最小值
+                    else if (max <= min) {
+                        isValid = false;
+                        errorMessage = '最大值必须大于最小值';
+                    }
+                }
+            }
+
+            // 更新错误提示
+            if (errorElement) {
+                if (!isValid) {
+                    errorElement.textContent = errorMessage;
+                    errorElement.classList.remove('hidden');
+                    this.classList.add('border-red-500');
+                    this.classList.remove('border-gray-300', 'focus:border-primary');
+                } else {
+                    errorElement.classList.add('hidden');
+                    this.classList.remove('border-red-500');
+                    this.classList.add('border-gray-300', 'focus:border-primary');
+                }
+            }
+
+            return isValid;
+        }
     });
 </script>
 {% endblock %}
