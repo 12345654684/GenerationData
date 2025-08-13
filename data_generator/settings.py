@@ -10,7 +10,7 @@ SECRET_KEY = 'django-insecure-example-key-for-development-only'
 # 调试模式 - 生产环境应设为False
 DEBUG = True
 
-ALLOWED_HOSTS = ['localhost', '127.0.0.1','192.168.3.22']
+ALLOWED_HOSTS = ['*']
 
 # 应用定义
 INSTALLED_APPS = [
