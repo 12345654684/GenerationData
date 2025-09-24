@@ -12,10 +12,10 @@
             <i class="fa fa-info-circle mr-2"></i>
             <strong>配置说明：</strong>
             可以输入固定值列表（用逗号分隔）或SQL查询语句（以SELECT开头）。主键字段会自动自增，无需配置。
-            以"time"结尾的字段会自动生成时间，格式为YYYYMMDD。
+            以"time（date）"结尾的字段会自动生成时间，格式为YYYY-MM-DD HH:mm:ss(YYYY-MM-DD)。
         </div>
 
-        <!-- 新增：rand_num详细使用说明 -->
+        <!-- 随机数生成规则说明 -->
         <div class="mt-3 p-3 bg-purple-50 rounded-md text-sm text-purple-800">
             <i class="fa fa-lightbulb-o mr-2"></i>
             <strong>随机数生成规则：</strong>
@@ -41,7 +41,8 @@
             <div class="mb-6 border-b border-gray-200 pb-4">
                 <div class="flex overflow-x-auto space-x-2 pb-2 hide-scrollbar">
                     {% for table in selected_tables %}
-                    <button type="button" class="table-tab whitespace-nowrap px-4 py-2 rounded-md bg-primary text-white" data-table="{{ table }}">
+                    <!-- 修复初始样式：仅第一个表按钮显示选中状态 -->
+                    <button type="button" class="table-tab whitespace-nowrap px-4 py-2 rounded-md {% if forloop.counter0 == 0 %}bg-primary text-white{% else %}bg-gray-100 text-gray-700{% endif %}" data-table="{{ table }}">
                         {{ table }}
                     </button>
                     {% endfor %}
@@ -52,6 +53,23 @@
             {% for table, data in table_data.items %}
             <div class="table-fields" id="fields_{{ table }}">
                 <h3 class="text-lg font-medium text-gray-800 mb-4">{{ table }} 表字段配置</h3>
+
+                <!-- 每个表独立的逻辑主键配置（可折叠） -->
+                <div class="mb-6 p-4 border border-gray-200 rounded-lg">
+                    <div class="flex items-center justify-between cursor-pointer table-prikey-toggle" data-table="{{ table }}">
+                        <h4 class="text-md font-medium text-gray-800">逻辑主键配置 <i class="fa fa-chevron-down ml-2 text-gray-500 table-prikey-chevron" data-table="{{ table }}"></i></h4>
+                    </div>
+                    <div class="mt-3 hidden table-prikey-content" id="prikey_{{ table }}">
+                        <div class="p-3 bg-gray-50 rounded-md">
+                            <label for="logic_pri_keys_{{ table }}" class="block text-sm font-medium text-gray-700 mb-1">逻辑主键字段（用逗号分隔）</label>
+                            <input type="text" id="logic_pri_keys_{{ table }}" name="logic_pri_keys_{{ table }}"
+                                   value="{{ data.logic_pri_keys|default:'' }}"
+                                   class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-primary focus:border-primary text-sm"
+                                   placeholder="如：field1,field2,field3">
+                            <p class="mt-1 text-sm text-gray-500">设置用于确保数据唯一性的逻辑主键字段组合，多个字段用逗号分隔。</p>
+                        </div>
+                    </div>
+                </div>
 
                 <div class="overflow-x-auto">
                     <table class="min-w-full divide-y divide-gray-200">
@@ -75,6 +93,9 @@
                                             {% if col|lower|endswith:"time" %}
                                             <span class="ml-2 px-2 py-0.5 text-xs font-medium bg-blue-100 text-blue-800 rounded">时间</span>
                                             {% endif %}
+                                            {% if col|lower|endswith:"date" %}
+                                            <span class="ml-2 px-2 py-0.5 text-xs font-medium bg-blue-100 text-blue-800 rounded">日期</span>
+                                            {% endif %}
                                         </div>
                                     </div>
                                 </td>
@@ -83,6 +104,8 @@
                                         自增
                                     {% elif col|lower|endswith:"time" %}
                                         时间
+                                    {% elif col|lower|endswith:"date" %}
+                                        日期
                                     {% else %}
                                         自定义
                                     {% endif %}
@@ -94,8 +117,8 @@
                                     <div class="w-full">
                                         <input type="text" name="{{ table }}_{{ col }}"
                                                value="{{ data.config|get_item:col|default:'' }}"
-                                               class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-primary focus:border-primary text-sm"
-                                               placeholder="{% if col|lower|endswith:'time' %}留空则使用日期范围配置{% else %}值1,值2,值3 或 SELECT语句 或 rand_num(...){% endif %}"
+                                               class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-primary focus:border-primary text-sm rule-input"
+                                               placeholder="{% if col|lower|endswith:'time' %}留空则使用日期范围配置{% elif col|lower|endswith:'date' %}留空则使用日期范围配置{% else %}值1,值2,值3 或 SELECT语句 或 rand_num(...){% endif %}"
                                                data-field="{{ table }}_{{ col }}">
                                         <!-- 错误提示区域 -->
                                         <p class="mt-1 text-xs text-red-600 hidden rand-num-error" id="error_{{ table }}_{{ col }}"></p>
@@ -167,8 +190,42 @@
             });
         });
 
-        // 新增：rand_num验证功能
-        const configInputs = document.querySelectorAll('input[name$="_id"]:not([name*="primary"]), input:not([name$="_id"])');
+        // 每个表的逻辑主键配置折叠控制
+        document.querySelectorAll('.table-prikey-toggle').forEach(toggle => {
+            toggle.addEventListener('click', function() {
+                const table = this.getAttribute('data-table');
+                const content = document.getElementById(`prikey_${table}`);
+                const chevron = document.querySelector(`.table-prikey-chevron[data-table="${table}"]`);
+
+                const isHidden = content.classList.contains('hidden');
+                if (isHidden) {
+                    content.classList.remove('hidden');
+                    chevron.classList.remove('fa-chevron-down');
+                    chevron.classList.add('fa-chevron-up');
+                } else {
+                    content.classList.add('hidden');
+                    chevron.classList.remove('fa-chevron-up');
+                    chevron.classList.add('fa-chevron-down');
+                }
+            });
+        });
+
+        // 默认展开第一个表的逻辑主键配置
+        if (tableFields.length > 0 && tableFields[0].id.startsWith('fields_')) {
+            const firstTable = tableFields[0].id.replace('fields_', '');
+            const firstContent = document.getElementById(`prikey_${firstTable}`);
+            const firstChevron = document.querySelector(`.table-prikey-chevron[data-table="${firstTable}"]`);
+
+            if (firstContent && firstChevron) {
+                firstContent.classList.remove('hidden');
+                firstChevron.classList.remove('fa-chevron-down');
+                firstChevron.classList.add('fa-chevron-up');
+            }
+        }
+
+        // rand_num验证功能
+        // 使用特定类选择器，更精准定位需要验证的输入框
+        const configInputs = document.querySelectorAll('.rule-input');
 
         configInputs.forEach(input => {
             // 实时验证

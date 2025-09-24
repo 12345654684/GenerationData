@@ -92,5 +92,5 @@ STATICFILES_DIRS = [os.path.join(BASE_DIR, 'generator/static')]
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 # 会话配置
-SESSION_COOKIE_AGE = 3600  # 会话超时时间：1小时
+SESSION_COOKIE_AGE = 36000  # 会话超时时间：1小时
 SESSION_EXPIRE_AT_BROWSER_CLOSE = True  # 浏览器关闭时会话过期

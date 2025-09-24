@@ -8,6 +8,8 @@ from django.contrib import messages
 from django.http import JsonResponse
 from django.conf import settings
 import os
+import getpass
+from itertools import product
 from django.utils import timezone
 import json  # 新增：用于处理日志中的JSON数据
 
@@ -32,20 +34,17 @@ if not os.path.exists(CONFIG_PATH):
         f.write('[columns]\n')
         f.write('# 格式: 字段名=值1,值2,值3 或 字段名=SELECT语句\n')
 
-
 def index(request):
     """首页视图"""
     # 重置会话数据
     request.session.flush()
     return render(request, 'generator/index.html')
 
-
 def reset(request):
     """重置所有配置"""
     request.session.flush()
     messages.success(request, "已重置所有配置，可以重新开始")
     return redirect('index')
-
 
 def database_config(request):
     """数据库配置视图"""
@@ -93,7 +92,6 @@ def database_config(request):
 
     return render(request, 'generator/database_config.html', {'db_config': db_config})
 
-
 def table_selection(request):
     """表选择视图"""
     # 检查是否已配置数据库
@@ -133,7 +131,6 @@ def table_selection(request):
     except Exception as e:
         messages.error(request, f"获取表列表失败: {str(e)}")
         return redirect('database_config')
-
 
 def query_cols(database, table, db_config):
     """查询表的列信息"""
@@ -175,7 +172,6 @@ def query_cols(database, table, db_config):
         print(f"查询列信息失败: {e}")
         return None, None
 
-
 def field_config(request):
     """字段配置视图"""
     # 检查会话数据
@@ -199,8 +195,12 @@ def field_config(request):
         for table in selected_tables:
             table_fields = {}
             for key, value in request.POST.items():
-                if key.startswith(f"{table}_"):
+                print(key, value)
+                if key.startswith(f"{table}_") :
                     field_name = key[len(f"{table}_"):]
+                    table_fields[field_name] = value.strip()
+                if key.endswith(f"_{table}"):
+                    field_name = key[:len(key)-len(f"_{table}")]
                     table_fields[field_name] = value.strip()
             field_configs[table] = table_fields
 
@@ -242,7 +242,6 @@ def field_config(request):
         'table_data': table_data,
         'selected_tables': selected_tables
     })
-
 
 def generate_config(request):
     """生成配置视图"""
@@ -303,7 +302,6 @@ def generate_config(request):
         'selected_tables': request.session['selected_tables']
     })
 
-
 def generate_random_datetime(start_date_str, end_date_str):
     """生成指定范围内的随机日期时间"""
     try:
@@ -324,13 +322,14 @@ def generate_random_datetime(start_date_str, end_date_str):
         random_datetime = start_date + datetime.timedelta(seconds=random_seconds)
 
         # 格式化为指定字符串
-        return random_datetime.strftime("%Y-%m-%d %H:%M:%S")
+        time = random_datetime.strftime("%Y-%m-%d %H:%M:%S")
+        date = random_datetime.strftime("%Y-%m-%d")
+        return {'time': time, 'date': date}
     except Exception as e:
         print(f"生成随机日期失败: {e}")
-        return datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-
-
-
+        time = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        date = datetime.datetime.now().strftime("%Y-%m-%d")
+        return {'time': time, 'date': date}
 
 def max_pri(col, table, db_config):
     """获取主键的最大值"""
@@ -365,10 +364,48 @@ def rand_num(decimal_digits, min_val, max_val):
         rand_lst.append(formatted_num)
     return rand_lst
 
+def distinct_cols(conn,conf_data,database,table,*args):
+    col_lst = list(args) if args else []
+    col_pri_val={}
+    data_all=[]
+    conf_data=conf_data
+    print('----------',args)
+    print(args==True)
+    if args!=('',):
+        print('**************')
+        con = conn
+        cursor = con.cursor()
+        # 列出所有可能组合
+        for col in col_lst:
+            cursor.execute(f'select distinct {col} from {database}.{table}')
+            data_lst=cursor.fetchall()
+            # 1、自己数据库里已有的值
+            data_val=[str(data[0]) for data in data_lst]
+            # 2、配置的数据
+            if conf_data.get(col):
+                data_val.extend(conf_data[col])
+
+            col_pri_val[col]=data_val
+            data_all.append(data_val)
+        all_result = set(product(*data_all))
+        # 列出已有组合
+        query_sql=f'select distinct {','.join(col_lst)} from {database}.{table}'
+        cursor.execute(query_sql)
+        already_data=tuple(tuple(str(x) for x in subarr) for subarr in cursor.fetchall())
+        already_data=set(already_data)
+        # 计算出可用组合
+        final_data=list(all_result-already_data)
+        # 拼接字段名与字段值
+        for k,v in enumerate(col_lst):
+            col_pri_val[v]=[data[k] for data in final_data]
+        return col_pri_val
+    else:
+        return {}
 
 def generate_data(request):
     """生成数据并显示结果（添加日志记录功能）"""
     # 检查会话数据
+    # print('--------',request.session['field_configs'])
     required_keys = ['db_config', 'selected_tables', 'field_configs', 'generate_config']
     if not all(key in request.session for key in required_keys):
         messages.warning(request, "请先完成前面的配置步骤")
@@ -377,6 +414,7 @@ def generate_data(request):
     db_config = request.session['db_config']
     selected_tables = request.session['selected_tables']
     field_configs = request.session['field_configs']
+
     generate_config = request.session['generate_config']
 
     num = int(generate_config['num'])
@@ -433,22 +471,35 @@ def generate_data(request):
                     except Exception as e:
                         print(f"执行查询失败 {config_value}: {e}")
                         cols_dict[col] = []
+
                 elif 'rand_num' in config_value.lower():
                     first_split = config_value.split(',')
-                    try :
-                        min_val = int(first_split[1].strip())
-                        decimal_digits = int(first_split[0].split('(')[1].strip())
-                        max_val = int(first_split[2].split(')')[0].strip())
-                    except Exception as e:
-                        messages.error(request,'rand_num随机配置必须为数字类型')
-                    if decimal_digits <= 0:
-                        messages.error(request,'rand_num随机配置小数位数不能为负数')
-                    if min_val>=max_val:
-                        messages.error(request,'rand_num随机配置最小值必须小于最大值')
+                    min_val = int(first_split[1].strip())
+                    decimal_digits = int(first_split[0].split('(')[1].strip())
+                    max_val = int(first_split[2].split(')')[0].strip())
                     cols_dict[col] = rand_num(decimal_digits, min_val, max_val)
                 else:
                     # 分割为值列表
                     cols_dict[col] = [v.strip() for v in config_value.split(',') if v.strip()]
+            # 逻辑主键
+            logic_pri_keys = request.session['field_configs'][table]['logic_pri_keys']
+            conf_data = cols_dict
+            database = db_config['db_name']
+            logic_pri_list = [key.strip() for key in logic_pri_keys.split(',')]
+            pri_key_dic = distinct_cols(conn, conf_data, database, table, *logic_pri_list)
+            if pri_key_dic:
+                pri_key_dic_num = len(next(iter(pri_key_dic.values())))
+            else:
+                pri_key_dic_num = 0
+            # 如果需要分割成列表
+            if logic_pri_keys:
+                if len(pri_key_dic.keys()) > 0:
+                    messages.success(request,'有配置逻辑主键，造数数量更新为配置值与主键值中较小值')
+                    if pri_key_dic_num == 0:
+                        messages.warning(request,'已无可用逻辑主键数量，造数结束,数据为0')
+                        redirect('result')
+                    num = min(num, pri_key_dic_num)
+
 
             # 生成数据
             data_lst = []
@@ -456,10 +507,13 @@ def generate_data(request):
             col_placeholders = ', '.join(['%s'] * len(col_names))
             col_str = ', '.join(col_names)
 
-            for _ in range(num):
+            for i in range(num):
                 data = []
+                datetime_dic=generate_random_datetime(start_date, end_date)
                 for col in col_names:
-                    if col in pri_lst:
+                    if col in pri_key_dic.keys():
+                        data.append(pri_key_dic[col][i])
+                    elif col in pri_lst:
                         # 主键自增
                         max_dic[col] += 1
                         data.append(max_dic[col])
@@ -468,21 +522,26 @@ def generate_data(request):
                         data.append(random.choice(cols_dict[col]))
                     elif col.lower().endswith('time'):
                         # 生成时间
-                        data.append(generate_random_datetime(start_date, end_date))
+                        data.append(datetime_dic['time'])
+                    elif col.lower().endswith('date'):
+                        data.append(datetime_dic['date'])
                     elif col_dic[col]:
                         # 使用表中已有的值
                         data.append(random.choice(col_dic[col]))
                     else:
                         # 无法生成值，使用默认值
                         data.append(None)
-
                 data_lst.append(data)
 
             # 批量插入数据
             try:
                 with conn.cursor() as cursor:
+                    print(1)
                     insert_sql = f"insert into {db_config['db_name']}.{table} ({col_str}) values ({col_placeholders}) ;"
+                    print(2,insert_sql,data_lst[0] )
+
                     cursor.executemany(insert_sql, data_lst)
+                    print(3)
                     conn.commit()
 
                 # 记录结果
@@ -498,6 +557,7 @@ def generate_data(request):
 
             except Exception as e:
                 conn.rollback()
+                print(e)
                 error_detail = str(e)
                 results.append({
                     'table': table,
@@ -511,6 +571,7 @@ def generate_data(request):
         conn.close()
 
     except Exception as e:
+        print('***************',e)
         error_msg = f"数据库连接错误: {str(e)}"
         results.append({
             'table': '数据库连接',
@@ -527,7 +588,7 @@ def generate_data(request):
 
         # 创建日志记录
         log = GenerationLog(
-            ip_address=request.META.get('REMOTE_ADDR'),  # 操作IP
+            ip_address=request.META.get('REMOTE_ADDR')+' '+getpass.getuser(),  # 操作IP
             database_name=db_config['db_name'],  # 目标数据库
             table_name=",".join(selected_tables),  # 目标表名（多表用逗号分隔）
             generation_count=num,  # 生成数量
